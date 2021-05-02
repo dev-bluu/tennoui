@@ -1,7 +1,6 @@
 import asyncio
-import aiohttp
 import tkinter as tk
-import warframe_api as warpy
+from warpy import warpy
 import win32gui
 import win32api
 import win32con
@@ -90,7 +89,7 @@ else:
 timers = tk.Frame(master=root, width=340, height=160, cursor="none")
 
 loop = asyncio.get_event_loop()
-warframe = warpy.WarframeAPI("pc", loop=loop)
+warframe = warpy.Worldstate("pc", loop=loop)
 
 # TIMERS
 timers.grid(row=0, column=0)
