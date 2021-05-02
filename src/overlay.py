@@ -5,6 +5,8 @@ import warframe_api as warpy
 import win32gui
 import win32api
 import win32con
+import math
+from datetime import datetime
 from ctypes import windll
 
 GWL_EXSTYLE = -20
@@ -85,43 +87,85 @@ else:
     root.geometry('%dx%d+%d+%d' % (width, height, x_pos + X_POS_WIN_OFFSET, y_pos + Y_POS_WIN_OFFSET))
     print("Windowed")
 
-timers = tk.Frame(master=root, bg="#FFFFFF", width=340, height=160, cursor="none")
-
+timers = tk.Frame(master=root, width=340, height=160, cursor="none")
 
 loop = asyncio.get_event_loop()
 warframe = warpy.WarframeAPI("pc", loop=loop)
 
+# TIMERS
 timers.grid(row=0, column=0)
 
 tk.Label(timers, text="Cetus", fg="#FFFFFF").grid(row=0, column=0)
 tk.Label(timers, text="Deimos", fg="#FFFFFF").grid(row=0, column=2)
 tk.Label(timers, text="Vallis", fg="#FFFFFF").grid(row=0, column=4)
 
-cetus_timer = tk.Label(timers)
-vallis_timer = tk.Label(timers)
-cambion_timer = tk.Label(timers)
-cetus_timer.grid(row=0, column=1)
-cambion_timer.grid(row=0, column=3)
-vallis_timer.grid(row=0, column=5)
+cetus_timer_svar = tk.StringVar(timers)
+vallis_timer_svar = tk.StringVar(timers)
+cambion_timer_svar = tk.StringVar(timers)
+
+cetus_timer_label = tk.Label(timers, textvariable=cetus_timer_svar)
+vallis_timer_label = tk.Label(timers, textvariable=vallis_timer_svar)
+cambion_timer_label = tk.Label(timers, textvariable=cambion_timer_svar)
+
+cetus_timer_label.grid(row=0, column=1)
+cambion_timer_label.grid(row=0, column=3)
+vallis_timer_label.grid(row=0, column=5)
 
 
-async def current_cycles():
-    print("Running...")
+# Asynchronous functions
+
+
+# TODO: See if there is a way to decorate these methods and reduce some duplicate code
+# Timers
+# Following methods are using an additional 120000 ms (2m) to attempt to avoid polling the API before expiration
+# update which would result in a negative timedelta
+async def get_cetus_cycle():
     cetus_status = await warframe.cetus_status()
-    vallis_status = await warframe.vallis_status()
-    cambion_status = await warframe.cambion_status()
+    expiration = datetime.strptime(cetus_status["expiry"], "%Y-%m-%dT%H:%M:%S.%fZ")
     if cetus_status["isDay"]:
-        cetus_timer.config(text="Day")
+        cetus_timer_svar.set("Day")
     else:
-        cetus_timer.config(text="Night")
+        cetus_timer_svar.set("Night")
+    remaining_time = expiration - datetime.utcnow()
+    if remaining_time.total_seconds() < 0:
+        retry = 120000
+    else:
+        retry = remaining_time.total_seconds() * 1000.0 + 120000
+    print("Next Cetus cycle retry in: " + str(remaining_time))
+    root.after(math.ceil(retry), lambda: loop.run_until_complete(get_cetus_cycle()))
+
+
+async def get_vallis_cycle():
+    vallis_status = await warframe.vallis_status()
+    expiration = datetime.strptime(vallis_status["expiry"], "%Y-%m-%dT%H:%M:%S.%fZ")
     if vallis_status["isWarm"]:
-        vallis_timer.config(text="Warm")
+        vallis_timer_svar.set("Warm")
     else:
-        vallis_timer.config(text="Cold")
-    cambion_timer.config(text=cambion_status["active"].capitalize())
-    root.after(300000, current_cycles)
+        vallis_timer_svar.set("Cold")
+    remaining_time = expiration - datetime.utcnow()
+    if remaining_time.total_seconds() < 0:
+        retry = 120000
+    else:
+        retry = remaining_time.total_seconds() * 1000.0 + 120000
+    print("Next Vallis cycle retry in: " + str(remaining_time))
+    root.after(math.ceil(retry), lambda: loop.run_until_complete(get_vallis_cycle()))
 
 
-loop.run_until_complete(current_cycles())
+async def get_cambion_cycle():
+    cambion_status = await warframe.cambion_status()
+    expiration = datetime.strptime(cambion_status["expiry"], "%Y-%m-%dT%H:%M:%S.%fZ")
+    cambion_timer_svar.set(cambion_status["active"].capitalize())
+    remaining_time = expiration - datetime.utcnow()
+    if remaining_time.total_seconds() < 0:
+        retry = 120000
+    else:
+        retry = remaining_time.total_seconds() * 1000.0 + 120000
+    print("Next Cambion cycle retry in: " + str(remaining_time))
+    root.after(math.ceil(retry), lambda: loop.run_until_complete(get_cambion_cycle()))
+
+
+loop.run_until_complete(get_cetus_cycle())
+loop.run_until_complete(get_vallis_cycle())
+loop.run_until_complete(get_cambion_cycle())
 
 root.mainloop()
