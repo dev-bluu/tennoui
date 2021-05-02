@@ -1,9 +1,10 @@
+import asyncio
+import aiohttp
 import tkinter as tk
 import warframe_api as warpy
 import win32gui
 import win32api
 import win32con
-import requests
 from ctypes import windll
 
 GWL_EXSTYLE = -20
@@ -86,7 +87,9 @@ else:
 
 timers = tk.Frame(master=root, bg="#FFFFFF", width=340, height=160, cursor="none")
 
-warframe = warpy.WarframeAPI("pc", requests.session())
+
+loop = asyncio.get_event_loop()
+warframe = warpy.WarframeAPI("pc", loop=loop)
 
 timers.grid(row=0, column=0)
 
@@ -102,10 +105,11 @@ cambion_timer.grid(row=0, column=3)
 vallis_timer.grid(row=0, column=5)
 
 
-def current_cycles():
-    cetus_status = warframe.cetus_status()
-    vallis_status = warframe.vallis_status()
-    cambion_status = warframe.cambion_status()
+async def current_cycles():
+    print("Running...")
+    cetus_status = await warframe.cetus_status()
+    vallis_status = await warframe.vallis_status()
+    cambion_status = await warframe.cambion_status()
     if cetus_status["isDay"]:
         cetus_timer.config(text="Day")
     else:
@@ -118,6 +122,6 @@ def current_cycles():
     root.after(300000, current_cycles)
 
 
-current_cycles()
+loop.run_until_complete(current_cycles())
 
 root.mainloop()

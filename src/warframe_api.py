@@ -1,160 +1,137 @@
-from requests import request
+import asyncio
+import aiohttp
 
+WARFRAME_API = 'https://api.warframestat.us'
 
 class NonPlatformError(Exception):
     pass
 
-
-def catch_status_code(f):
-    def func(*args, **kwargs):
-        response = f(*args, **kwargs)
-        if response.status_code != 200:
-            response.raise_for_status()
-        return response.json()
-    return func
 
 
 class WarframeAPI:
 
     _platforms = ['pc', 'ps4', 'xb1', 'swi']
 
-    def __init__(self, platform: str, session: request, language: str = 'en'):
+    def __init__(self, platform: str, language: str = 'en', loop=None):
         if platform not in self._platforms:
             raise NonPlatformError(platform)
         self.platform = platform
         self.language = language
-        self.api = 'https://api.warframestat.us/{platform}'.format(platform=self.platform)
-        self.session = session
+        self._loop = asyncio.get_event_loop() if loop is None else loop
+        self.session = aiohttp.ClientSession(loop=self._loop)
 
-    @catch_status_code
-    def worldstate(self):
-        response = self.session.get(self.api)
-        return response
+    async def _fetch(self, url):
+        async with self.session.get(url) as response:
+            resp = await response.json()
+            return resp
 
-    @catch_status_code
-    def alerts(self):
-        response = self.session.get(self.api + "/alerts")
-        return response
 
-    @catch_status_code
-    def arbitration(self):
-        response = self.session.get(self.api + "/arbitration")
-        return response
+    async def worldstate(self):
+        url = WARFRAME_API + "/{platform}".format(platform=self.platform)
+        return await self._fetch(url)
+        # response = self.session.get(self.api)
+        # return response
 
-    @catch_status_code
-    def cambion_status(self):
-        response = self.session.get(self.api + "/cambionCycle")
-        return response
+    async def alerts(self):
+        url = WARFRAME_API + "/{platform}/alerts".format(platform=self.platform)
+        return await self._fetch(url)
 
-    @catch_status_code
-    def cetus_status(self):
-        response = self.session.get(self.api + "/cetusCycle")
-        return response
+    async def arbitration(self):
+        url = WARFRAME_API + "/{platform}/arbitration".format(platform=self.platform)
+        return await self._fetch(url)
 
-    @catch_status_code
-    def conclave_challenges(self):
-        response = self.session.get(self.api + "/cetusCycle")
-        return response
+    async def cambion_status(self):
+        url = WARFRAME_API + "/{platform}/cambionCycle".format(platform=self.platform)
+        return await self._fetch(url)
 
-    @catch_status_code
-    def construction_progress(self):
-        response = self.session.get(self.api + "/constructionProgress")
-        return response
+    async def cetus_status(self):
+        url = WARFRAME_API + "/{platform}/cetusCycle".format(platform=self.platform)
+        return await self._fetch(url)
 
-    @catch_status_code
-    def darvo_deal(self):
-        response = self.session.get(self.api + "/dailyDeals")
-        return response
+    async def conclave_challenges(self, query: str = None):
+        url = WARFRAME_API + "/{platform}/conclaveChallenges".format(platform=self.platform)
+        return await self._fetch(url)
 
-    @catch_status_code
-    def earth_cycle(self):
-        response = self.session.get(self.api + "/earthCycle")
-        return response
+    async def construction_progress(self):
+        url = WARFRAME_API + "/{platform}/constructionProgress".format(platform=self.platform)
+        return await self._fetch(url)
 
-    @catch_status_code
-    def ongoing_events(self):
-        response = self.session.get(self.api + "/events")
-        return response
+    async def darvo_deal(self):
+        url = WARFRAME_API + "/{platform}/dailyDeals".format(platform=self.platform)
+        return await self._fetch(url)
 
-    @catch_status_code
-    def fissures(self):
-        response = self.session.get(self.api + "/fissures")
-        return response
+    async def earth_cycle(self):
+        url = WARFRAME_API + "/{platform}/earthCycle".format(platform=self.platform)
+        return await self._fetch(url)
 
-    @catch_status_code
-    def darvo_flash_sale(self):
-        response = self.session.get(self.api + "/flashSales")
-        return response
+    async def ongoing_events(self):
+        url = WARFRAME_API + "/{platform}/events".format(platform=self.platform)
+        return await self._fetch(url)
 
-    @catch_status_code
-    def global_upgrades(self):
-        response = self.session.get(self.api + "/globalUpgrades")
-        return response
+    async def fissures(self):
+        url = WARFRAME_API + "/{platform}/fissures".format(platform=self.platform)
+        return await self._fetch(url)
 
-    @catch_status_code
-    def invasions(self):
-        response = self.session.get(self.api + "/invasions")
-        return response
+    
+    async def darvo_flash_sale(self):
+        url = WARFRAME_API + "/{platform}/flashSales".format(platform=self.platform)
+        return await self._fetch(url)
 
-    @catch_status_code
-    def kuva_nodes(self):
-        response = self.session.get(self.api + "/kuva")
-        return response
+    async def global_upgrades(self):
+        url = WARFRAME_API + "/{platform}/globalUpgrades".format(platform=self.platform)
+        return await self._fetch(url)
 
-    @catch_status_code
-    def news(self):
-        response = self.session.get(self.api + "/news")
-        return response
+    async def invasions(self):
+        url = WARFRAME_API + "/{platform}/invasions".format(platform=self.platform)
+        return await self._fetch(url)
 
-    @catch_status_code
-    def nightwave(self):
-        response = self.session.get(self.api + "/nightwave")
-        return response
+    async def kuva_nodes(self):
+        url = WARFRAME_API + "/{platform}/kuva".format(platform=self.platform)
+        return await self._fetch(url)
 
-    @catch_status_code
-    def persistent_enemy_data(self):
-        response = self.session.get(self.api + "/persistentEnemies")
-        return response
+    async def news(self):
+        url = WARFRAME_API + "/{platform}/news".format(platform=self.platform)
+        return await self._fetch(url)
 
-    @catch_status_code
-    def riven_stats(self, query: str = None):
+    async def nightwave(self):
+        url = WARFRAME_API + "/{platform}/nightwave".format(platform=self.platform)
+        return await self._fetch(url)
+
+    async def persistent_enemy_data(self):
+        url = WARFRAME_API + "/{platform}/persistentEnemies".format(platform=self.platform)
+        return await self._fetch(url)
+
+    async def riven_stats(self, query: str = None):
         if query:
-            response = self.session.get(self.api + "/rivens/search/{query}".format(query=query))
+            url = WARFRAME_API + "/{platform}/rivens/search/{query}".format(platform=self.platform, query=query)
         else:
-            response = self.session.get(self.api + "/rivens")
-        return response
+            url = WARFRAME_API + "/{platform}/rivens".format(platform=self.platform)
+        return await self._fetch(url)
 
-    @catch_status_code
-    def sentient_outpost(self):
-        response = self.session.get(self.api + "/sentientOutposts")
-        return response
+    async def sentient_outpost(self):
+        url = WARFRAME_API + "/{platform}/sentientOutposts".format(platform=self.platform)
+        return await self._fetch(url)
 
-    @catch_status_code
-    def sanctuary_status(self):
-        response = self.session.get(self.api + "/simaris")
-        return response
+    async def sanctuary_status(self):
+        url = WARFRAME_API + "/{platform}/simaris".format(platform=self.platform)
+        return await self._fetch(url)
 
-    @catch_status_code
-    def sortie(self):
-        response = self.session.get(self.api + "/sortie")
-        return response
+    async def sortie(self):
+        url = WARFRAME_API + "/{platform}/sortie".format(platform=self.platform)
+        return await self._fetch(url)
 
-    @catch_status_code
-    def syndicate_nodes(self):
-        response = self.session.get(self.api + "/syndicateMissions")
-        return response
+    async def syndicate_nodes(self):
+        url = WARFRAME_API + "/{platform}/syndicateMissions".format(platform=self.platform)
+        return await self._fetch(url)
 
-    @catch_status_code
-    def worldstate_timestamp(self):
-        response = self.session.get(self.api + "/timestamp")
-        return response
+    async def worldstate_timestamp(self):
+        url = WARFRAME_API + "/{platform}/timestamp".format(platform=self.platform)
+        return await self._fetch(url)
 
-    @catch_status_code
-    def vallis_status(self):
-        response = self.session.get(self.api + "/vallisCycle")
-        return response
+    async def vallis_status(self):
+        url = WARFRAME_API + "/{platform}/vallisCycle".format(platform=self.platform)
+        return await self._fetch(url)
 
-    @catch_status_code
-    def void_trader(self):
-        response = self.session.get(self.api + "/voidTrader")
-        return response
+    async def void_trader(self):
+        url = WARFRAME_API + "/{platform}/voidTrader".format(platform=self.platform)
+        return await self._fetch(url)
