@@ -4,13 +4,8 @@ from warpy import warpy
 import win32gui
 import win32api
 import win32con
-import math
-from datetime import datetime
-from ctypes import windll
-
-GWL_EXSTYLE = -20
-WS_EX_APPWINDOW = 0x00040000
-WS_EX_TOOLWINDOW = 0x00000080
+from styles import enable_clickthrough
+from timers import Timer
 
 X_POS_WIN_OFFSET = 8
 Y_POS_WIN_OFFSET = 31
@@ -23,32 +18,7 @@ root.wm_attributes("-disabled", True)  # Disable interactions with the window
 root.wm_attributes("-transparent", '#2e3440')  # Used to make window transparent
 root.overrideredirect(True)  # Remove the title bar
 
-
-def enable_clickthrough(_root):
-    """
-    Sets the app window to be click through.
-    :param _root: Tkinter parent
-    :return:
-    """
-    _hwnd = windll.user32.GetParent(_root.winfo_id())
-    style = windll.user32.GetWindowLongPtrW(_hwnd, GWL_EXSTYLE)
-    style |= win32con.WS_EX_TRANSPARENT | win32con.WS_EX_LAYERED
-    win32gui.SetWindowLong(_hwnd, win32con.GWL_EXSTYLE, style)
-
-
-def disable_clickthrough(_root):
-    """
-    TODO: Properly implement this so it can undo click-through transparency
-    :param _root: Tkinter parent
-    :return:
-    """
-    _hwnd = windll.user32.GetParent(_root.winfo_id())
-    style = windll.user32.GetWindowLongPtrW(_hwnd, GWL_EXSTYLE)
-    style |= win32con.WS_EX_COMPOSITED | win32con.WS_EX_LAYERED
-    win32gui.SetWindowLong(_hwnd, win32con.GWL_EXSTYLE, style)
-
-
-root.after(10, lambda: enable_clickthrough(root))  # Make overlay click through.
+root.after(1, lambda: enable_clickthrough(root))  # Make overlay click through.
 # Define the root's geometry based on the geometry of specified application.
 # List of Warframe class names:
 #   - WarframePublicEvolutionGfxD3D12
@@ -95,76 +65,54 @@ warframe = warpy.Worldstate("pc", loop=loop)
 timers.grid(row=0, column=0)
 
 tk.Label(timers, text="Cetus", fg="#FFFFFF").grid(row=0, column=0)
-tk.Label(timers, text="Deimos", fg="#FFFFFF").grid(row=0, column=2)
-tk.Label(timers, text="Vallis", fg="#FFFFFF").grid(row=0, column=4)
+tk.Label(timers, text="Deimos", fg="#FFFFFF").grid(row=0, column=3)
+tk.Label(timers, text="Vallis", fg="#FFFFFF").grid(row=0, column=6)
 
-cetus_timer_svar = tk.StringVar(timers)
-vallis_timer_svar = tk.StringVar(timers)
-cambion_timer_svar = tk.StringVar(timers)
+# String state indicators
+cetus_timer = Timer(tk.StringVar(timers), tk.StringVar(timers), root, loop)
+vallis_timer = Timer(tk.StringVar(timers), tk.StringVar(timers), root, loop)
+cambion_timer = Timer(tk.StringVar(timers), tk.StringVar(timers), root, loop)
 
-cetus_timer_label = tk.Label(timers, textvariable=cetus_timer_svar)
-vallis_timer_label = tk.Label(timers, textvariable=vallis_timer_svar)
-cambion_timer_label = tk.Label(timers, textvariable=cambion_timer_svar)
+cetus_state_label = tk.Label(timers, textvariable=cetus_timer.state)
+vallis_state_label = tk.Label(timers, textvariable=vallis_timer.state)
+cambion_state_label = tk.Label(timers, textvariable=cambion_timer.state)
 
-cetus_timer_label.grid(row=0, column=1)
-cambion_timer_label.grid(row=0, column=3)
-vallis_timer_label.grid(row=0, column=5)
+cetus_state_label.grid(row=0, column=1)
+cambion_state_label.grid(row=0, column=4)
+vallis_state_label.grid(row=0, column=7)
+
+cetus_timer_label = tk.Label(timers, textvariable=cetus_timer.timer)
+vallis_timer_label = tk.Label(timers, textvariable=vallis_timer.timer)
+cambion_timer_label = tk.Label(timers, textvariable=cambion_timer.timer)
+
+cetus_timer_label.grid(row=0, column=2)
+cambion_timer_label.grid(row=0, column=5)
+vallis_timer_label.grid(row=0, column=8)
 
 
 # Asynchronous functions
+async def cetus_state_widget():
+    json = await warframe.cetus_status()
+    next_attempt, remaining_time = cetus_timer.set_state(json, cetus_timer.cetus_handler)
+    cetus_timer.update_timer(remaining_time)
+    root.after(next_attempt, lambda: loop.run_until_complete(cetus_state_widget()))
 
 
-# TODO: See if there is a way to decorate these methods and reduce some duplicate code
-# Timers
-# Following methods are using an additional 120000 ms (2m) to attempt to avoid polling the API before expiration
-# update which would result in a negative timedelta
-async def get_cetus_cycle():
-    cetus_status = await warframe.cetus_status()
-    expiration = datetime.strptime(cetus_status["expiry"], "%Y-%m-%dT%H:%M:%S.%fZ")
-    if cetus_status["isDay"]:
-        cetus_timer_svar.set("Day")
-    else:
-        cetus_timer_svar.set("Night")
-    remaining_time = expiration - datetime.utcnow()
-    if remaining_time.total_seconds() < 0:
-        retry = 120000
-    else:
-        retry = remaining_time.total_seconds() * 1000.0 + 120000
-    print("Next Cetus cycle retry in: " + str(remaining_time))
-    root.after(math.ceil(retry), lambda: loop.run_until_complete(get_cetus_cycle()))
+async def vallis_state_widget():
+    json = await warframe.vallis_status()
+    next_attempt, remaining_time = vallis_timer.set_state(json, vallis_timer.vallis_handler)
+    vallis_timer.update_timer(remaining_time)
+    root.after(next_attempt, lambda: loop.run_until_complete(vallis_state_widget()))
 
 
-async def get_vallis_cycle():
-    vallis_status = await warframe.vallis_status()
-    expiration = datetime.strptime(vallis_status["expiry"], "%Y-%m-%dT%H:%M:%S.%fZ")
-    if vallis_status["isWarm"]:
-        vallis_timer_svar.set("Warm")
-    else:
-        vallis_timer_svar.set("Cold")
-    remaining_time = expiration - datetime.utcnow()
-    if remaining_time.total_seconds() < 0:
-        retry = 120000
-    else:
-        retry = remaining_time.total_seconds() * 1000.0 + 120000
-    print("Next Vallis cycle retry in: " + str(remaining_time))
-    root.after(math.ceil(retry), lambda: loop.run_until_complete(get_vallis_cycle()))
+async def cambion_state_widget():
+    json = await warframe.cambion_status()
+    next_attempt, remaining_time = cambion_timer.set_state(json, cambion_timer.cambion_handler)
+    cambion_timer.update_timer(remaining_time)
+    root.after(next_attempt, lambda: loop.run_until_complete(cambion_state_widget()))
 
-
-async def get_cambion_cycle():
-    cambion_status = await warframe.cambion_status()
-    expiration = datetime.strptime(cambion_status["expiry"], "%Y-%m-%dT%H:%M:%S.%fZ")
-    cambion_timer_svar.set(cambion_status["active"].capitalize())
-    remaining_time = expiration - datetime.utcnow()
-    if remaining_time.total_seconds() < 0:
-        retry = 120000
-    else:
-        retry = remaining_time.total_seconds() * 1000.0 + 120000
-    print("Next Cambion cycle retry in: " + str(remaining_time))
-    root.after(math.ceil(retry), lambda: loop.run_until_complete(get_cambion_cycle()))
-
-
-loop.run_until_complete(get_cetus_cycle())
-loop.run_until_complete(get_vallis_cycle())
-loop.run_until_complete(get_cambion_cycle())
+loop.run_until_complete(cetus_state_widget())
+loop.run_until_complete(vallis_state_widget())
+loop.run_until_complete(cambion_state_widget())
 
 root.mainloop()
