@@ -44,6 +44,7 @@ else:
     # Assume fullscreen
     x_pos, y_pos, width, height, fullscreen = 0, 0, win32api.GetSystemMetrics(0), win32api.GetSystemMetrics(1), True
 
+
 if fullscreen:
     # root.wm_attributes("-fullscreen", True)
     print("Fullscreen is not supported")  # Currently unable to display above fullscreen apps
@@ -68,11 +69,12 @@ tk.Label(timers, text="Cetus", fg="#FFFFFF").grid(row=0, column=0)
 tk.Label(timers, text="Deimos", fg="#FFFFFF").grid(row=0, column=3)
 tk.Label(timers, text="Vallis", fg="#FFFFFF").grid(row=0, column=6)
 
-# String state indicators
+# Create new timer objects
 cetus_timer = Timer(tk.StringVar(timers), tk.StringVar(timers), root, loop)
 vallis_timer = Timer(tk.StringVar(timers), tk.StringVar(timers), root, loop)
 cambion_timer = Timer(tk.StringVar(timers), tk.StringVar(timers), root, loop)
 
+# State Labels
 cetus_state_label = tk.Label(timers, textvariable=cetus_timer.state)
 vallis_state_label = tk.Label(timers, textvariable=vallis_timer.state)
 cambion_state_label = tk.Label(timers, textvariable=cambion_timer.state)
@@ -81,6 +83,7 @@ cetus_state_label.grid(row=0, column=1)
 cambion_state_label.grid(row=0, column=4)
 vallis_state_label.grid(row=0, column=7)
 
+# Timer Labels
 cetus_timer_label = tk.Label(timers, textvariable=cetus_timer.timer)
 vallis_timer_label = tk.Label(timers, textvariable=vallis_timer.timer)
 cambion_timer_label = tk.Label(timers, textvariable=cambion_timer.timer)
@@ -91,28 +94,15 @@ vallis_timer_label.grid(row=0, column=8)
 
 
 # Asynchronous functions
-async def cetus_state_widget():
-    json = await warframe.cetus_status()
-    next_attempt, remaining_time = cetus_timer.set_state(json, cetus_timer.cetus_handler)
-    cetus_timer.update_timer(remaining_time)
-    root.after(next_attempt, lambda: loop.run_until_complete(cetus_state_widget()))
+async def state_widget(f, _timer_widget):
+    json = await f()
+    next_attempt, remaining_time = _timer_widget.set_state(json)
+    _timer_widget.update_timer(remaining_time)
+    root.after(next_attempt, lambda: loop.run_until_complete(state_widget(f, _timer_widget)))
+    root.after(next_attempt, lambda: enable_clickthrough(root))
 
-
-async def vallis_state_widget():
-    json = await warframe.vallis_status()
-    next_attempt, remaining_time = vallis_timer.set_state(json, vallis_timer.vallis_handler)
-    vallis_timer.update_timer(remaining_time)
-    root.after(next_attempt, lambda: loop.run_until_complete(vallis_state_widget()))
-
-
-async def cambion_state_widget():
-    json = await warframe.cambion_status()
-    next_attempt, remaining_time = cambion_timer.set_state(json, cambion_timer.cambion_handler)
-    cambion_timer.update_timer(remaining_time)
-    root.after(next_attempt, lambda: loop.run_until_complete(cambion_state_widget()))
-
-loop.run_until_complete(cetus_state_widget())
-loop.run_until_complete(vallis_state_widget())
-loop.run_until_complete(cambion_state_widget())
+loop.run_until_complete(state_widget(warframe.cetus_status, cetus_timer))
+loop.run_until_complete(state_widget(warframe.vallis_status, vallis_timer))
+loop.run_until_complete(state_widget(warframe.cambion_status, cambion_timer))
 
 root.mainloop()

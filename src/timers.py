@@ -17,7 +17,7 @@ class Timer:
         self._root = root
         self._loop = loop
 
-    def set_state(self, json, state_handler):
+    def set_state(self, json):
         expiration, remaining_time, remaining_seconds = _create_timer_values(json)
         if remaining_seconds < 0:
             self.timer.set(str('00:00:00'))
@@ -25,22 +25,8 @@ class Timer:
         else:
             self.timer.set(str(remaining_time))
             retry = remaining_seconds * 1000.0 + 120000
-        state_handler(json)
-        return round(retry), remaining_time
-
-    # Do these belong here?
-    def cetus_handler(self, json):
         self.state.set(json['state'].capitalize())
-
-    def vallis_handler(self, json):
-        if json["isWarm"]:
-            self.state.set("Warm")
-        else:
-            self.state.set("Cold")
-
-    def cambion_handler(self, json):
-        self.state.set(json['active'].capitalize())
-    # End ?
+        return round(retry), remaining_time
 
     def update_timer(self, remaining_time):
         remaining_time -= timedelta(seconds=1)
